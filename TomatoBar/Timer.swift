@@ -122,7 +122,14 @@ class TBTimer: ObservableObject {
     func updateTimeLeft() {
         timeLeftString = timerFormatter.string(from: Date(), to: finishTime)!
         if timer != nil, showTimerInMenuBar {
-            TBStatusItem.shared.setTitle(title: timeLeftString)
+            var title = timeLeftString
+            if stateMachine.state == .work {
+                let indicators = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧"]
+                let current = consecutiveWorkIntervals  // already incremented in onWorkFinish, so during work it reflects completed count
+                let idx = min(current, indicators.count - 1)
+                title = "\(timeLeftString) \(indicators[idx])"
+            }
+            TBStatusItem.shared.setTitle(title: title)
         } else {
             TBStatusItem.shared.setTitle(title: nil)
         }
@@ -133,7 +140,7 @@ class TBTimer: ObservableObject {
 
         let queue = DispatchQueue(label: "Timer")
         timer = DispatchSource.makeTimerSource(flags: .strict, queue: queue)
-        timer!.schedule(deadline: .now(), repeating: .seconds(1), leeway: .never)
+        timer!.schedule(deadline: .now(), repeating: .seconds(1), leeway: .seconds(1))
         timer!.setEventHandler(handler: onTimerTick)
         timer!.setCancelHandler(handler: onTimerCancel)
         timer!.resume()
@@ -185,6 +192,21 @@ class TBTimer: ObservableObject {
     private func onWorkFinish(context _: TBStateMachine.Context) {
         consecutiveWorkIntervals += 1
         player.playDing()
+        let isLongBreak = consecutiveWorkIntervals >= workIntervalsInSet
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            if isLongBreak {
+                alert.messageText = "完成4个番茄钟！长休息开始"
+                alert.informativeText = "好好放松一下：\n\n🧍 站起来走动走动\n🍑 提肛收缩\n👁 做个眼保健操\n🌄 望向远处放松眼睛\n🍵 泡杯茶喝一喝\n🚽 顺便去趟厕所\n\n好好休息，满血复活！"
+            } else {
+                alert.messageText = "番茄钟结束！休息一下"
+                alert.informativeText = "请做以下动作：\n\n🧍 站立起来\n🍑 提肛收缩\n👁 眨眼放松\n🌄 望向远处\n\n保持 5 分钟，爱护你的身体！"
+            }
+            alert.alertStyle = .informational
+            alert.addButton(withTitle: "好的，开始休息")
+            NSApp.activate(ignoringOtherApps: true)
+            alert.runModal()
+        }
     }
 
     private func onWorkEnd(context _: TBStateMachine.Context) {
