@@ -130,7 +130,7 @@ private enum ChildView {
 }
 
 struct TBPopoverView: View {
-    @ObservedObject var timer = TBTimer()
+    @StateObject private var timer = TBTimer()
     @State private var buttonHovered = false
     @State private var activeChildView = ChildView.intervals
 

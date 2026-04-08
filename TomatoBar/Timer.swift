@@ -75,8 +75,12 @@ class TBTimer: ObservableObject {
         timerFormatter.allowedUnits = [.minute, .second]
         timerFormatter.zeroFormattingBehavior = .pad
 
-        KeyboardShortcuts.onKeyUp(for: .startStopTimer, action: startStop)
-        notificationCenter.setActionHandler(handler: onNotificationAction)
+        KeyboardShortcuts.onKeyUp(for: .startStopTimer) { [weak self] in
+            self?.startStop()
+        }
+        notificationCenter.setActionHandler { [weak self] action in
+            self?.onNotificationAction(action: action)
+        }
 
         let aem: NSAppleEventManager = NSAppleEventManager.shared()
         aem.setEventHandler(self,
@@ -136,19 +140,28 @@ class TBTimer: ObservableObject {
     }
 
     private func startTimer(seconds: Int) {
+        stopTimer()
         finishTime = Date().addingTimeInterval(TimeInterval(seconds))
 
         let queue = DispatchQueue(label: "Timer")
-        timer = DispatchSource.makeTimerSource(flags: .strict, queue: queue)
-        timer!.schedule(deadline: .now(), repeating: .seconds(1), leeway: .seconds(1))
-        timer!.setEventHandler(handler: onTimerTick)
-        timer!.setCancelHandler(handler: onTimerCancel)
-        timer!.resume()
+        let newTimer = DispatchSource.makeTimerSource(flags: .strict, queue: queue)
+        newTimer.schedule(deadline: .now(), repeating: .seconds(1), leeway: .seconds(1))
+        newTimer.setEventHandler { [weak self] in
+            self?.onTimerTick()
+        }
+        newTimer.setCancelHandler { [weak self] in
+            self?.onTimerCancel()
+        }
+        timer = newTimer
+        newTimer.resume()
     }
 
     private func stopTimer() {
-        timer!.cancel()
-        timer = nil
+        guard let timer else {
+            return
+        }
+        timer.cancel()
+        self.timer = nil
     }
 
     private func onTimerTick() {
