@@ -69,7 +69,7 @@ class TBLogger {
             let jsonData = try encoder.encode(event)
             try logHandle.seekToEnd()
             try logHandle.write(contentsOf: jsonData + lineEnd)
-            try logHandle.synchronize()
+            // 不同步刷盘，让系统自行决定何时将数据写入磁盘，避免每次写日志都触发磁盘 I/O
         } catch {
             print("cannot write to log file: \(error)")
         }

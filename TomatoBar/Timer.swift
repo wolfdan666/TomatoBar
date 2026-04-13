@@ -1,6 +1,7 @@
 import KeyboardShortcuts
 import SwiftState
 import SwiftUI
+import Combine
 
 class TBTimer: ObservableObject {
     @AppStorage("stopAfterBreak") var stopAfterBreak = false
@@ -19,7 +20,11 @@ class TBTimer: ObservableObject {
     private var finishTime: Date!
     private var timerFormatter = DateComponentsFormatter()
     @Published var timeLeftString: String = ""
-    @Published var timer: DispatchSourceTimer?
+    @Published var timer: AnyCancellable?
+    // 显式跟踪计时器运行状态，用于视图判断
+    var isRunning: Bool {
+        timer != nil
+    }
 
     init() {
         /*
@@ -143,49 +148,33 @@ class TBTimer: ObservableObject {
         stopTimer()
         finishTime = Date().addingTimeInterval(TimeInterval(seconds))
 
-        let queue = DispatchQueue(label: "Timer")
-        let newTimer = DispatchSource.makeTimerSource(flags: .strict, queue: queue)
-        newTimer.schedule(deadline: .now(), repeating: .seconds(1), leeway: .seconds(1))
-        newTimer.setEventHandler { [weak self] in
-            self?.onTimerTick()
-        }
-        newTimer.setCancelHandler { [weak self] in
-            self?.onTimerCancel()
-        }
-        timer = newTimer
-        newTimer.resume()
+        // 使用 Combine Timer.publish，完全由系统调度，更省电
+        // 每 1 秒触发一次，系统会在合适的时间合并唤醒
+        timer = Timer.publish(every: 1.0, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                self?.onTimerTick()
+            }
     }
 
     private func stopTimer() {
-        guard let timer else {
-            return
-        }
-        timer.cancel()
-        self.timer = nil
+        timer?.cancel()
+        timer = nil
     }
 
     private func onTimerTick() {
-        /* Cannot publish updates from background thread */
-        DispatchQueue.main.async { [self] in
-            updateTimeLeft()
-            let timeLeft = finishTime.timeIntervalSince(Date())
-            if timeLeft <= 0 {
-                /*
-                 Ticks can be missed during the machine sleep.
-                 Stop the timer if it goes beyond an overrun time limit.
-                 */
-                if timeLeft < overrunTimeLimit {
-                    stateMachine <-! .startStop
-                } else {
-                    stateMachine <-! .timerFired
-                }
+        updateTimeLeft()
+        let timeLeft = finishTime.timeIntervalSince(Date())
+        if timeLeft <= 0 {
+            /*
+             Ticks can be missed during the machine sleep.
+             Stop the timer if it goes beyond an overrun time limit.
+             */
+            if timeLeft < overrunTimeLimit {
+                stateMachine <-! .startStop
+            } else {
+                stateMachine <-! .timerFired
             }
-        }
-    }
-
-    private func onTimerCancel() {
-        DispatchQueue.main.async { [self] in
-            updateTimeLeft()
         }
     }
 
