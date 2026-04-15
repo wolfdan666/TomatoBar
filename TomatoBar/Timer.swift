@@ -249,5 +249,7 @@ class TBTimer: ObservableObject {
         stopTimer()
         TBStatusItem.shared.setIcon(name: .idle)
         consecutiveWorkIntervals = 0
+        timeLeftString = ""           // 进入 idle 时清空，避免停止/睡眠唤醒后卡在残留值
+        TBStatusItem.shared.setTitle(title: nil)
     }
 }
