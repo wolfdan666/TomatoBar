@@ -19,6 +19,7 @@ class TBTimer: ObservableObject {
     private var notificationCenter = TBNotificationCenter()
     private var finishTime: Date!
     private var timerFormatter = DateComponentsFormatter()
+    private var appleEventManager = NSAppleEventManager.shared()
     @Published var timeLeftString: String = ""
     @Published var timer: AnyCancellable?
     // 显式跟踪计时器运行状态，用于视图判断
@@ -87,11 +88,19 @@ class TBTimer: ObservableObject {
             self?.onNotificationAction(action: action)
         }
 
-        let aem: NSAppleEventManager = NSAppleEventManager.shared()
-        aem.setEventHandler(self,
+        // 保存 NSAppleEventManager 引用用于 deinit 中移除
+        appleEventManager.setEventHandler(self,
                             andSelector: #selector(handleGetURLEvent(_:withReplyEvent:)),
                             forEventClass: AEEventClass(kInternetEventClass),
                             andEventID: AEEventID(kAEGetURL))
+    }
+
+    deinit {
+        // 移除 KeyboardShortcuts handler，避免 TBTimer 销毁后 handler 继续累积
+        KeyboardShortcuts.removeHandler(for: .startStopTimer)
+        // 移除 NSAppleEventManager handler，避免 TBTimer 无法释放
+        appleEventManager.removeEventHandler(forEventClass: AEEventClass(kInternetEventClass),
+                                          andEventID: AEEventID(kAEGetURL))
     }
 
     @objc func handleGetURLEvent(_ event: NSAppleEventDescriptor,

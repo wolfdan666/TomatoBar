@@ -29,13 +29,16 @@ class TBStatusItem: NSObject, NSApplicationDelegate {
     private var popover = NSPopover()
     private var statusBarItem: NSStatusItem?
     static var shared: TBStatusItem!
+    // 复用 TBPopoverView 和 TBTimer 实例，避免每次打开 popover 都重建导致资源泄漏
+    private var popoverView: TBPopoverView?
 
     func applicationDidFinishLaunching(_: Notification) {
-        let view = TBPopoverView()
+        let timer = TBTimer()
+        popoverView = TBPopoverView(timer: timer)
 
         popover.behavior = .transient
         popover.contentViewController = NSViewController()
-        popover.contentViewController?.view = NSHostingView(rootView: view)
+        popover.contentViewController?.view = NSHostingView(rootView: popoverView!)
         if let contentViewController = popover.contentViewController {
             popover.contentSize.height = contentViewController.view.intrinsicContentSize.height
             popover.contentSize.width = 240

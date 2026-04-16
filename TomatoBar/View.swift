@@ -130,9 +130,19 @@ private enum ChildView {
 }
 
 struct TBPopoverView: View {
-    @StateObject private var timer = TBTimer()
+    @StateObject private var timer: TBTimer
     @State private var buttonHovered = false
     @State private var activeChildView = ChildView.intervals
+
+    // 接受外部传入的 TBTimer 实例，避免 popover 每次打开都重建 Timer
+    init(timer: TBTimer) {
+        _timer = StateObject(wrappedValue: timer)
+    }
+
+    // 内部使用的旧初始化器，保留兼容性
+    init() {
+        _timer = StateObject(wrappedValue: TBTimer())
+    }
 
     private var startLabel = NSLocalizedString("TBPopoverView.start.label", comment: "Start label")
     private var stopLabel = NSLocalizedString("TBPopoverView.stop.label", comment: "Stop label")
