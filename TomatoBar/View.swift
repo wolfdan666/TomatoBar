@@ -125,6 +125,27 @@ private struct SoundsView: View {
     }
 }
 
+private struct TimerButtonLabel: View {
+    @ObservedObject var display: TBTimerDisplay
+    let buttonHovered: Bool
+    let startLabel: String
+    let stopLabel: String
+
+    var body: some View {
+        Text(display.isRunning ?
+             (buttonHovered ? stopLabel : display.timeLeftString) :
+                startLabel)
+            /*
+              When appearance is set to "Dark" and accent color is set to "Graphite"
+              "defaultAction" button label's color is set to the same color as the
+              button, making the button look blank. #24
+             */
+            .foregroundColor(Color.white)
+            .font(.system(.body).monospacedDigit())
+            .frame(maxWidth: .infinity)
+    }
+}
+
 private enum ChildView {
     case intervals, settings, sounds
 }
@@ -153,17 +174,12 @@ struct TBPopoverView: View {
                 timer.startStop()
                 TBStatusItem.shared.closePopover(nil)
             } label: {
-                Text(timer.isRunning ?
-                     (buttonHovered ? stopLabel : timer.timeLeftString) :
-                        startLabel)
-                    /*
-                      When appearance is set to "Dark" and accent color is set to "Graphite"
-                      "defaultAction" button label's color is set to the same color as the
-                      button, making the button look blank. #24
-                     */
-                    .foregroundColor(Color.white)
-                    .font(.system(.body).monospacedDigit())
-                    .frame(maxWidth: .infinity)
+                TimerButtonLabel(
+                    display: timer.display,
+                    buttonHovered: buttonHovered,
+                    startLabel: startLabel,
+                    stopLabel: stopLabel
+                )
             }
             .onHover { over in
                 buttonHovered = over

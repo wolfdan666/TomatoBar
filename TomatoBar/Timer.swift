@@ -3,6 +3,11 @@ import SwiftState
 import SwiftUI
 import Combine
 
+class TBTimerDisplay: ObservableObject {
+    @Published var timeLeftString: String = ""
+    @Published var isRunning: Bool = false
+}
+
 class TBTimer: ObservableObject {
     @AppStorage("stopAfterBreak") var stopAfterBreak = false
     @AppStorage("showTimerInMenuBar") var showTimerInMenuBar = true
@@ -20,11 +25,11 @@ class TBTimer: ObservableObject {
     private var finishTime: Date!
     private var timerFormatter = DateComponentsFormatter()
     private var appleEventManager = NSAppleEventManager.shared()
-    @Published var timeLeftString: String = ""
-    @Published var timer: AnyCancellable?
+    let display = TBTimerDisplay()
+    private var timer: AnyCancellable?
     // 显式跟踪计时器运行状态，用于视图判断
     var isRunning: Bool {
-        timer != nil
+        display.isRunning
     }
 
     init() {
@@ -138,18 +143,19 @@ class TBTimer: ObservableObject {
     }
 
     func updateTimeLeft() {
-        timeLeftString = timerFormatter.string(from: Date(), to: finishTime)!
-        if timer != nil, showTimerInMenuBar {
+        // 只有当 timer 正在运行时才更新 timeLeftString
+        guard timer != nil else { return }
+        let timeLeftString = timerFormatter.string(from: Date(), to: finishTime)!
+        display.timeLeftString = timeLeftString
+        if showTimerInMenuBar {
             var title = timeLeftString
             if stateMachine.state == .work {
                 let indicators = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧"]
-                let current = consecutiveWorkIntervals  // already incremented in onWorkFinish, so during work it reflects completed count
+                let current = consecutiveWorkIntervals
                 let idx = min(current, indicators.count - 1)
                 title = "\(timeLeftString) \(indicators[idx])"
             }
             TBStatusItem.shared.setTitle(title: title)
-        } else {
-            TBStatusItem.shared.setTitle(title: nil)
         }
     }
 
@@ -164,11 +170,14 @@ class TBTimer: ObservableObject {
             .sink { [weak self] _ in
                 self?.onTimerTick()
             }
+        display.isRunning = true
+        updateTimeLeft()
     }
 
     private func stopTimer() {
         timer?.cancel()
         timer = nil
+        display.isRunning = false
     }
 
     private func onTimerTick() {
@@ -258,7 +267,7 @@ class TBTimer: ObservableObject {
         stopTimer()
         TBStatusItem.shared.setIcon(name: .idle)
         consecutiveWorkIntervals = 0
-        timeLeftString = ""           // 进入 idle 时清空，避免停止/睡眠唤醒后卡在残留值
+        display.timeLeftString = ""   // 进入 idle 时清空，避免停止/睡眠唤醒后卡在残留值
         TBStatusItem.shared.setTitle(title: nil)
     }
 }
